@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Shield, TrendingUp, AlertCircle } from "lucide-react";
 import { AlertBanner } from "@/components/AlertBanner";
-import { ProductTable, Product } from "@/components/ProductTable";
+import { ProductTable, Product, calculateTotalImpact } from "@/components/ProductTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -12,8 +12,9 @@ const sampleProducts: Product[] = [
     category: "Beverages",
     origin: "Colombia",
     currentCost: 560,
-    tariffPercent: 44,
-    note: "44% tariff increase on coffee beans imported via the US",
+    directTariff: 44,
+    materialCostIncrease: 0,
+    note: "44% direct import tariff on coffee beans routed through the US. This is a straightforward tariff on the finished agricultural product at the border.",
     riskLevel: "high",
     strategies: [
       {
@@ -21,8 +22,8 @@ const sampleProducts: Product[] = [
         description: "Examine existing supply contracts for force majeure clauses or price adjustment mechanisms that may help absorb costs.",
       },
       {
-        title: "Adjust Order Timing",
-        description: "Consider increasing order frequency with smaller quantities to better manage cash flow and reduce inventory risk.",
+        title: "Direct Sourcing Routes",
+        description: "Explore direct shipping routes from Colombia that avoid US ports to potentially bypass this tariff.",
       },
       {
         title: "Explore Duty Drawback",
@@ -36,21 +37,26 @@ const sampleProducts: Product[] = [
     category: "Equipment",
     origin: "Italy",
     currentCost: 1200,
-    tariffPercent: 12,
-    note: "12% tariff increase on imported espresso machines",
-    riskLevel: "medium",
+    directTariff: 12,
+    materialCostIncrease: 8,
+    note: "Combined impact: 12% direct tariff on finished machines PLUS 8% cost increase from upstream tariffs on steel, aluminum, and electronic components used in manufacturing.",
+    riskLevel: "high",
     strategies: [
       {
         title: "Negotiate with Suppliers",
-        description: "Reach out to Italian suppliers to discuss shared cost absorption or volume discounts to offset the tariff impact.",
+        description: "Italian manufacturers are also facing higher material costs. Discuss shared cost absorption or volume commitments to lock in better pricing.",
       },
       {
         title: "Consider Alternative Sources",
-        description: "Research equipment manufacturers in tariff-free regions while maintaining quality standards.",
+        description: "Research equipment manufacturers in tariff-free regions, though quality and service differences must be carefully evaluated.",
       },
       {
         title: "Plan Capital Purchases",
-        description: "Assess equipment replacement cycles and consider accelerating purchases if further tariff increases are anticipated.",
+        description: "The compound effect of both tariff types makes timing critical. Consider accelerating purchases if further increases are expected.",
+      },
+      {
+        title: "Extended Warranty/Service Plans",
+        description: "Negotiate service agreements to maximize equipment lifespan and defer replacement costs.",
       },
     ],
   },
@@ -60,8 +66,9 @@ const sampleProducts: Product[] = [
     category: "Ingredients",
     origin: "USA",
     currentCost: 50,
-    tariffPercent: 20,
-    note: "20% tariff increase on syrups from the US",
+    directTariff: 20,
+    materialCostIncrease: 0,
+    note: "20% direct tariff on finished syrup products from the US. As a processed food product, this is applied at the border on the complete item.",
     riskLevel: "medium",
     strategies: [
       {
@@ -86,8 +93,7 @@ const Index = () => {
   const totalProducts = sampleProducts.length;
   const highRiskCount = sampleProducts.filter((p) => p.riskLevel === "high").length;
   const avgImpact =
-    sampleProducts.reduce((acc, p) => acc + (p.currentCost * p.tariffPercent) / 100, 0) /
-    totalProducts;
+    sampleProducts.reduce((acc, p) => acc + calculateTotalImpact(p), 0) / totalProducts;
 
   return (
     <div className="min-h-screen bg-background">
@@ -218,36 +224,56 @@ const Index = () => {
               <CardContent className="pt-6">
                 <div className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
-                    {sampleProducts.map((product) => (
-                      <div key={product.id} className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold">{product.name}</h3>
-                          <span className="text-sm text-muted-foreground">
-                            Current: ${product.currentCost}
-                          </span>
+                    {sampleProducts.map((product) => {
+                      const currentTotal = product.directTariff + product.materialCostIncrease;
+                      const currentCost = product.currentCost * (1 + currentTotal / 100);
+                      
+                      return (
+                        <div key={product.id} className="space-y-4 p-4 rounded-lg border">
+                          <div className="flex items-center justify-between border-b pb-2">
+                            <h3 className="font-semibold">{product.name}</h3>
+                            <span className="text-sm text-muted-foreground">
+                              Base: ${product.currentCost}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                Current ({currentTotal}%):
+                              </span>
+                              <span className="font-semibold">
+                                ${currentCost.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">At 10% total:</span>
+                              <span className="font-medium">
+                                ${(product.currentCost * 1.1).toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">At 25% total:</span>
+                              <span className="font-medium text-warning">
+                                ${(product.currentCost * 1.25).toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">At 50% total:</span>
+                              <span className="font-medium text-destructive">
+                                ${(product.currentCost * 1.5).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                          {product.materialCostIncrease > 0 && (
+                            <div className="pt-2 border-t">
+                              <p className="text-xs text-muted-foreground italic">
+                                Note: Combined direct + material impact
+                              </p>
+                            </div>
+                          )}
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">At 10% tariff:</span>
-                            <span className="font-medium">
-                              ${(product.currentCost * 1.1).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">At 25% tariff:</span>
-                            <span className="font-medium text-warning">
-                              ${(product.currentCost * 1.25).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">At 50% tariff:</span>
-                            <span className="font-medium text-destructive">
-                              ${(product.currentCost * 1.5).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="pt-6 border-t">
@@ -306,16 +332,37 @@ const Index = () => {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold mb-1">
-                        44% Tariff on Colombian Coffee Beans
+                        44% Direct Tariff on Colombian Coffee Beans
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3">
-                        New tariff increase on coffee beans imported via the US, effective
-                        immediately. This affects all Colombian coffee imports routed through
-                        American ports.
+                        <strong>Direct import tariff:</strong> 44% applied to finished coffee beans at the border when routed through US ports. This is a straightforward tariff on the agricultural product itself, not affected by component or material costs.
                       </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>Effective: Jan 15, 2024</span>
-                        <span>Category: Beverages</span>
+                        <span>Type: Direct Tariff</span>
+                        <span>Impact: High</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex gap-4">
+                    <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">
+                        Combined 20% Impact on Italian Espresso Machines
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        <strong>Compound impact:</strong> 12% direct tariff on finished machines PLUS 8% cost increase from upstream tariffs on steel, aluminum, and electronic components. Italian manufacturers are passing along their increased material costs in addition to the border tariff.
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Effective: Jan 10, 2024</span>
+                        <span>Type: Direct + Materials</span>
                         <span>Impact: High</span>
                       </div>
                     </div>
@@ -331,39 +378,14 @@ const Index = () => {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold mb-1">
-                        20% Tariff Increase on US Syrups
+                        20% Direct Tariff on US Syrups
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3">
-                        New tariff policy on syrups and flavoring products imported from the
-                        United States. Consider alternative suppliers or bulk ordering.
+                        <strong>Direct import tariff:</strong> 20% on finished syrup products from the US. As a processed food item, this tariff applies to the complete product at the border.
                       </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>Effective: Jan 12, 2024</span>
-                        <span>Category: Ingredients</span>
-                        <span>Impact: Medium</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
-                      <AlertCircle className="h-5 w-5 text-warning" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">
-                        12% Tariff on Italian Equipment
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Tariff increase on imported espresso machines and commercial equipment
-                        from Italy. May affect equipment replacement and expansion plans.
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Effective: Jan 10, 2024</span>
-                        <span>Category: Equipment</span>
+                        <span>Type: Direct Tariff</span>
                         <span>Impact: Medium</span>
                       </div>
                     </div>
