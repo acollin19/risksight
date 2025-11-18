@@ -5,19 +5,25 @@ import { Calculator } from "lucide-react";
 
 interface TariffSimulatorProps {
   currentCost: number;
-  currentTariff: number;
+  directTariff: number;
+  materialCostIncrease: number;
   productName: string;
 }
 
 export const TariffSimulator = ({
   currentCost,
-  currentTariff,
+  directTariff,
+  materialCostIncrease,
   productName,
 }: TariffSimulatorProps) => {
-  const [simulatedTariff, setSimulatedTariff] = useState(currentTariff);
+  const currentTotal = directTariff + materialCostIncrease;
+  const [simulatedDirect, setSimulatedDirect] = useState(directTariff);
+  const [simulatedMaterial, setSimulatedMaterial] = useState(materialCostIncrease);
 
-  const calculatedCost = currentCost * (1 + simulatedTariff / 100);
-  const difference = calculatedCost - currentCost * (1 + currentTariff / 100);
+  const currentCostWithTariff = currentCost * (1 + currentTotal / 100);
+  const simulatedTotal = simulatedDirect + simulatedMaterial;
+  const calculatedCost = currentCost * (1 + simulatedTotal / 100);
+  const difference = calculatedCost - currentCostWithTariff;
 
   return (
     <Card>
@@ -33,17 +39,39 @@ export const TariffSimulator = ({
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Tariff Rate:</span>
-            <span className="text-2xl font-bold text-primary">{simulatedTariff}%</span>
+            <span className="text-sm font-medium">Direct Tariff:</span>
+            <span className="text-xl font-bold text-primary">{simulatedDirect}%</span>
           </div>
           <Slider
-            value={[simulatedTariff]}
-            onValueChange={(value) => setSimulatedTariff(value[0])}
+            value={[simulatedDirect]}
+            onValueChange={(value) => setSimulatedDirect(value[0])}
             min={0}
             max={100}
             step={1}
             className="w-full"
           />
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Material Cost Increase:</span>
+            <span className="text-xl font-bold text-warning">{simulatedMaterial}%</span>
+          </div>
+          <Slider
+            value={[simulatedMaterial]}
+            onValueChange={(value) => setSimulatedMaterial(value[0])}
+            min={0}
+            max={100}
+            step={1}
+            className="w-full"
+          />
+        </div>
+
+        <div className="pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">Total Impact:</span>
+            <span className="text-2xl font-bold text-destructive">{simulatedTotal}%</span>
+          </div>
         </div>
 
         <div className="space-y-3 pt-4 border-t">
@@ -52,9 +80,9 @@ export const TariffSimulator = ({
             <span className="text-sm font-medium">${currentCost.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">Current Tariff ({currentTariff}%):</span>
+            <span className="text-sm text-muted-foreground">Current Total Impact ({currentTotal}%):</span>
             <span className="text-sm font-medium">
-              ${(currentCost * (1 + currentTariff / 100)).toFixed(2)}
+              ${currentCostWithTariff.toFixed(2)}
             </span>
           </div>
           <div className="flex justify-between pt-2 border-t">
@@ -65,7 +93,7 @@ export const TariffSimulator = ({
           </div>
           {difference !== 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Difference:</span>
+              <span className="text-muted-foreground">Difference from Current:</span>
               <span
                 className={
                   difference > 0 ? "text-destructive font-medium" : "text-success font-medium"
