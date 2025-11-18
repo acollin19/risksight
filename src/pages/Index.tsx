@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Shield, TrendingUp, AlertCircle } from "lucide-react";
 import { AlertBanner } from "@/components/AlertBanner";
 import { ProductTable, Product } from "@/components/ProductTable";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const sampleProducts: Product[] = [
   {
@@ -79,6 +81,8 @@ const sampleProducts: Product[] = [
 ];
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<"products" | "scenarios" | "alerts">("products");
+  
   const totalProducts = sampleProducts.length;
   const highRiskCount = sampleProducts.filter((p) => p.riskLevel === "high").length;
   const avgImpact =
@@ -99,15 +103,39 @@ const Index = () => {
               </div>
             </div>
             <nav className="hidden md:flex gap-6">
-              <a href="#" className="text-sm font-medium text-primary border-b-2 border-primary pb-1">
+              <button
+                onClick={() => setActiveTab("products")}
+                className={cn(
+                  "text-sm font-medium transition-colors pb-1",
+                  activeTab === "products"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
                 Products
-              </a>
-              <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              </button>
+              <button
+                onClick={() => setActiveTab("scenarios")}
+                className={cn(
+                  "text-sm font-medium transition-colors pb-1",
+                  activeTab === "scenarios"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
                 Scenarios
-              </a>
-              <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              </button>
+              <button
+                onClick={() => setActiveTab("alerts")}
+                className={cn(
+                  "text-sm font-medium transition-colors pb-1",
+                  activeTab === "alerts"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
                 Alerts
-              </a>
+              </button>
             </nav>
           </div>
         </div>
@@ -163,17 +191,188 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Products Section */}
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Your Products</h2>
-            <p className="text-muted-foreground">
-              Click on any product to see detailed tariff impacts and mitigation strategies
-            </p>
-          </div>
+        {/* Tab Content */}
+        {activeTab === "products" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Your Products</h2>
+              <p className="text-muted-foreground">
+                Click on any product to see detailed tariff impacts and mitigation strategies
+              </p>
+            </div>
 
-          <ProductTable products={sampleProducts} />
-        </div>
+            <ProductTable products={sampleProducts} />
+          </div>
+        )}
+
+        {activeTab === "scenarios" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">What-If Scenarios</h2>
+              <p className="text-muted-foreground">
+                Test different tariff scenarios and see how they impact your business costs
+              </p>
+            </div>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {sampleProducts.map((product) => (
+                      <div key={product.id} className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold">{product.name}</h3>
+                          <span className="text-sm text-muted-foreground">
+                            Current: ${product.currentCost}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">At 10% tariff:</span>
+                            <span className="font-medium">
+                              ${(product.currentCost * 1.1).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">At 25% tariff:</span>
+                            <span className="font-medium text-warning">
+                              ${(product.currentCost * 1.25).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">At 50% tariff:</span>
+                            <span className="font-medium text-destructive">
+                              ${(product.currentCost * 1.5).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-6 border-t">
+                    <h4 className="font-semibold mb-4">Total Business Impact</h4>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 rounded-lg bg-success/10">
+                        <p className="text-sm text-muted-foreground mb-1">10% Scenario</p>
+                        <p className="text-2xl font-bold text-success">
+                          +$
+                          {sampleProducts
+                            .reduce((acc, p) => acc + p.currentCost * 0.1, 0)
+                            .toFixed(0)}
+                        </p>
+                      </div>
+                      <div className="text-center p-4 rounded-lg bg-warning/10">
+                        <p className="text-sm text-muted-foreground mb-1">25% Scenario</p>
+                        <p className="text-2xl font-bold text-warning">
+                          +$
+                          {sampleProducts
+                            .reduce((acc, p) => acc + p.currentCost * 0.25, 0)
+                            .toFixed(0)}
+                        </p>
+                      </div>
+                      <div className="text-center p-4 rounded-lg bg-destructive/10">
+                        <p className="text-sm text-muted-foreground mb-1">50% Scenario</p>
+                        <p className="text-2xl font-bold text-destructive">
+                          +$
+                          {sampleProducts
+                            .reduce((acc, p) => acc + p.currentCost * 0.5, 0)
+                            .toFixed(0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "alerts" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Policy Alerts</h2>
+              <p className="text-muted-foreground">
+                Recent tariff and policy changes that may affect your business
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex gap-4">
+                    <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">
+                        44% Tariff on Colombian Coffee Beans
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        New tariff increase on coffee beans imported via the US, effective
+                        immediately. This affects all Colombian coffee imports routed through
+                        American ports.
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Effective: Jan 15, 2024</span>
+                        <span>Category: Beverages</span>
+                        <span>Impact: High</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex gap-4">
+                    <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-5 w-5 text-warning" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">
+                        20% Tariff Increase on US Syrups
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        New tariff policy on syrups and flavoring products imported from the
+                        United States. Consider alternative suppliers or bulk ordering.
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Effective: Jan 12, 2024</span>
+                        <span>Category: Ingredients</span>
+                        <span>Impact: Medium</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex gap-4">
+                    <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-5 w-5 text-warning" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">
+                        12% Tariff on Italian Equipment
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Tariff increase on imported espresso machines and commercial equipment
+                        from Italy. May affect equipment replacement and expansion plans.
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Effective: Jan 10, 2024</span>
+                        <span>Category: Equipment</span>
+                        <span>Impact: Medium</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
