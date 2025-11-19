@@ -67,6 +67,14 @@ export default function AddProduct() {
     setSelectedProduct(product || null);
   };
 
+  const handleProductNameChange = (name: string) => {
+    setProductCode(name);
+    const product = productCodes.find(
+      (p) => p.name.toLowerCase() === name.toLowerCase()
+    );
+    setSelectedProduct(product || null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -84,7 +92,8 @@ export default function AddProduct() {
 
       const { error } = await supabase.from("user_products").insert({
         user_id: user.id,
-        product_code: productCode,
+        // use matched product code if found, otherwise fallback to typed value
+        product_code: selectedProduct ? selectedProduct.code : productCode,
         current_cost: parseFloat(currentCost),
         country_of_import: countryOfImport,
       });
@@ -133,19 +142,20 @@ export default function AddProduct() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="productCode">Product Code</Label>
-                <Select value={productCode} onValueChange={handleProductCodeChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a product code" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {productCodes.map((product) => (
-                      <SelectItem key={product.code} value={product.code}>
-                        {product.code} - {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="productName">Product Name</Label>
+                <Input
+                  id="productName"
+                  value={productCode}
+                  onChange={(e) => handleProductNameChange(e.target.value)}
+                  placeholder="Type product name (e.g., Widget X)"
+                  required
+                  list="product-options"
+                />
+                <datalist id="product-options">
+                  {productCodes.map((p) => (
+                    <option key={p.code} value={p.name} />
+                  ))}
+                </datalist>
               </div>
 
               {selectedProduct && (
