@@ -1,106 +1,117 @@
-import { useState } from "react";
-import { Shield, TrendingUp, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Shield, TrendingUp, AlertCircle, Package, Plus, LogOut } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { AlertBanner } from "@/components/AlertBanner";
 import { ProductTable, Product, calculateTotalImpact } from "@/components/ProductTable";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-const sampleProducts: Product[] = [
-  {
-    id: "1",
-    name: "Colombian Coffee Beans",
-    category: "Beverages",
-    origin: "Colombia",
-    currentCost: 560,
-    directTariff: 44,
-    materialCostIncrease: 0,
-    note: "44% direct import tariff on coffee beans routed through the US. This is a straightforward tariff on the finished agricultural product at the border.",
-    riskLevel: "high",
-    strategies: [
-      {
-        title: "Review Contract Terms",
-        description: "Examine existing supply contracts for force majeure clauses or price adjustment mechanisms that may help absorb costs.",
-      },
-      {
-        title: "Direct Sourcing Routes",
-        description: "Explore direct shipping routes from Colombia that avoid US ports to potentially bypass this tariff.",
-      },
-      {
-        title: "Explore Duty Drawback",
-        description: "Check if you qualify for duty drawback programs that provide refunds on tariffs for re-exported goods.",
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Espresso Machines",
-    category: "Equipment",
-    origin: "Italy",
-    currentCost: 1200,
-    directTariff: 12,
-    materialCostIncrease: 8,
-    note: "Combined impact: 12% direct tariff on finished machines PLUS 8% cost increase from upstream tariffs on steel, aluminum, and electronic components used in manufacturing.",
-    riskLevel: "high",
-    strategies: [
-      {
-        title: "Negotiate with Suppliers",
-        description: "Italian manufacturers are also facing higher material costs. Discuss shared cost absorption or volume commitments to lock in better pricing.",
-      },
-      {
-        title: "Consider Alternative Sources",
-        description: "Research equipment manufacturers in tariff-free regions, though quality and service differences must be carefully evaluated.",
-      },
-      {
-        title: "Plan Capital Purchases",
-        description: "The compound effect of both tariff types makes timing critical. Consider accelerating purchases if further increases are expected.",
-      },
-      {
-        title: "Extended Warranty/Service Plans",
-        description: "Negotiate service agreements to maximize equipment lifespan and defer replacement costs.",
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "Vanilla Syrup",
-    category: "Ingredients",
-    origin: "USA",
-    currentCost: 50,
-    directTariff: 20,
-    materialCostIncrease: 0,
-    note: "20% direct tariff on finished syrup products from the US. As a processed food product, this is applied at the border on the complete item.",
-    riskLevel: "medium",
-    strategies: [
-      {
-        title: "Evaluate Local Suppliers",
-        description: "Identify Canadian syrup manufacturers that could provide comparable products without import tariffs.",
-      },
-      {
-        title: "Bulk Purchasing",
-        description: "Consider increasing order sizes before further tariff changes, while balancing storage costs and shelf life.",
-      },
-      {
-        title: "Product Mix Adjustment",
-        description: "Review menu offerings to optimize the use of syrup products and potentially reduce overall volume needed.",
-      },
-    ],
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<"products" | "scenarios" | "alerts">("products");
-  
-  const totalProducts = sampleProducts.length;
-  const highRiskCount = sampleProducts.filter((p) => p.riskLevel === "high").length;
-  const avgImpact =
-    sampleProducts.reduce((acc, p) => acc + calculateTotalImpact(p), 0) / totalProducts;
+  const [activeTab, setActiveTab] = useState<'products' | 'scenarios' | 'alerts'>('products');
+  const [user, setUser] = useState<User | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check authentication
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
+      setUser(session.user);
+      
+      // Fetch user products
+      await fetchProducts(session.user.id);
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session) {
+        navigate("/auth");
+      } else {
+        fetchProducts(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const fetchProducts = async (userId: string) => {
+    setLoading(true);
+    try {
+      const { data: userProducts, error } = await supabase
+        .from("user_products")
+        .select(`
+          *,
+          product_codes (*)
+        `)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      const formattedProducts: Product[] = (userProducts || []).map((up: any) => ({
+        id: up.id,
+        name: up.product_codes.name,
+        category: up.product_codes.category,
+        origin: up.country_of_import,
+        currentCost: parseFloat(up.current_cost),
+        directTariff: parseFloat(up.product_codes.base_tariff),
+        materialCostIncrease: parseFloat(up.product_codes.material_tariff),
+        note: `${up.product_codes.name} from ${up.country_of_import}. Direct tariff: ${up.product_codes.base_tariff}%, Material cost increase: ${up.product_codes.material_tariff}%`,
+        riskLevel: (parseFloat(up.product_codes.base_tariff) + parseFloat(up.product_codes.material_tariff)) > 15 ? "high" : 
+                   (parseFloat(up.product_codes.base_tariff) + parseFloat(up.product_codes.material_tariff)) > 8 ? "medium" : "low",
+        strategies: [
+          { title: "Diversify Suppliers", description: "Source from multiple countries to reduce risk" },
+          { title: "Negotiate Pricing", description: "Work with suppliers on cost adjustments" },
+        ],
+      }));
+
+      setProducts(formattedProducts);
+    } catch (error: any) {
+      toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Shield className="h-12 w-12 text-primary animate-pulse mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalProducts = products.length;
+  const highRiskCount = products.filter((p) => p.riskLevel === "high").length;
+  const avgImpact = products.length > 0
+    ? products.reduce((acc, p) => acc + calculateTotalImpact(p), 0) / totalProducts
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
               <Shield className="h-8 w-8 text-primary" />
               <div>
@@ -108,41 +119,16 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">SME Tariff & Policy Risk Dashboard</p>
               </div>
             </div>
-            <nav className="hidden md:flex gap-6">
-              <button
-                onClick={() => setActiveTab("products")}
-                className={cn(
-                  "text-sm font-medium transition-colors pb-1",
-                  activeTab === "products"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Products
-              </button>
-              <button
-                onClick={() => setActiveTab("scenarios")}
-                className={cn(
-                  "text-sm font-medium transition-colors pb-1",
-                  activeTab === "scenarios"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Scenarios
-              </button>
-              <button
-                onClick={() => setActiveTab("alerts")}
-                className={cn(
-                  "text-sm font-medium transition-colors pb-1",
-                  activeTab === "alerts"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Alerts
-              </button>
-            </nav>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => navigate("/add-product")} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+              <Button onClick={handleLogout} variant="outline" size="sm">
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -152,247 +138,193 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Products</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{totalProducts}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Shield className="h-6 w-6 text-primary" />
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalProducts}</div>
+              <p className="text-xs text-muted-foreground">Items tracked</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">High Risk Items</p>
-                  <p className="text-3xl font-bold text-destructive mt-2">{highRiskCount}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">High Risk Items</CardTitle>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{highRiskCount}</div>
+              <p className="text-xs text-muted-foreground">Require attention</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg. Cost Impact</p>
-                  <p className="text-3xl font-bold text-warning mt-2">${avgImpact.toFixed(0)}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-warning" />
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Impact</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${avgImpact.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">Per product</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tab Content */}
-        {activeTab === "products" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Your Products</h2>
-              <p className="text-muted-foreground">
-                Click on any product to see detailed tariff impacts and mitigation strategies
-              </p>
-            </div>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b">
+          <button
+            onClick={() => setActiveTab('products')}
+            className={cn(
+              "px-4 py-2 font-medium transition-colors border-b-2",
+              activeTab === 'products'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Products
+          </button>
+          <button
+            onClick={() => setActiveTab('scenarios')}
+            className={cn(
+              "px-4 py-2 font-medium transition-colors border-b-2",
+              activeTab === 'scenarios'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Scenarios
+          </button>
+          <button
+            onClick={() => setActiveTab('alerts')}
+            className={cn(
+              "px-4 py-2 font-medium transition-colors border-b-2",
+              activeTab === 'alerts'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Alerts
+          </button>
+        </div>
 
-            <ProductTable products={sampleProducts} />
+        {/* Tab Content */}
+        {activeTab === 'products' && (
+          <div>
+            {products.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Products Yet</h3>
+                <p className="text-muted-foreground mb-6">
+                  Start by adding products to track their tariff impact
+                </p>
+                <Button onClick={() => navigate("/add-product")}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Your First Product
+                </Button>
+              </Card>
+            ) : (
+              <ProductTable products={products} />
+            )}
           </div>
         )}
 
-        {activeTab === "scenarios" && (
+        {activeTab === 'scenarios' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">What-If Scenarios</h2>
-              <p className="text-muted-foreground">
-                Test different tariff scenarios and see how they impact your business costs
-              </p>
-            </div>
-
             <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {sampleProducts.map((product) => {
-                      const currentTotal = product.directTariff + product.materialCostIncrease;
-                      const currentCost = product.currentCost * (1 + currentTotal / 100);
+              <CardHeader>
+                <CardTitle>What-If Scenarios</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {products.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    Add products to see scenario analysis
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Compare how different tariff rates would affect your business
+                    </p>
+                    
+                    {[10, 25, 50].map(rate => {
+                      const scenarioImpact = products.reduce((acc, p) => {
+                        const currentTotal = p.directTariff + p.materialCostIncrease;
+                        const scenarioCost = p.currentCost * (1 + rate / 100);
+                        const currentCost = p.currentCost * (1 + currentTotal / 100);
+                        return acc + (scenarioCost - currentCost);
+                      }, 0);
                       
                       return (
-                        <div key={product.id} className="space-y-4 p-4 rounded-lg border">
-                          <div className="flex items-center justify-between border-b pb-2">
-                            <h3 className="font-semibold">{product.name}</h3>
-                            <span className="text-sm text-muted-foreground">
-                              Base: ${product.currentCost}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">
-                                Current ({currentTotal}%):
-                              </span>
-                              <span className="font-semibold">
-                                ${currentCost.toFixed(2)}
-                              </span>
+                        <Card key={rate} className="bg-muted/20">
+                          <CardContent className="pt-6">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <h4 className="font-semibold">At {rate}% Tariff Rate</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  Across all products
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-destructive">
+                                  {scenarioImpact >= 0 ? '+' : ''}${scenarioImpact.toFixed(2)}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Total business impact
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">At 10% total:</span>
-                              <span className="font-medium">
-                                ${(product.currentCost * 1.1).toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">At 25% total:</span>
-                              <span className="font-medium text-warning">
-                                ${(product.currentCost * 1.25).toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">At 50% total:</span>
-                              <span className="font-medium text-destructive">
-                                ${(product.currentCost * 1.5).toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                          {product.materialCostIncrease > 0 && (
-                            <div className="pt-2 border-t">
-                              <p className="text-xs text-muted-foreground italic">
-                                Note: Combined direct + material impact
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
-                  </div>
-
-                  <div className="pt-6 border-t">
-                    <h4 className="font-semibold mb-4">Total Business Impact</h4>
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div className="text-center p-4 rounded-lg bg-success/10">
-                        <p className="text-sm text-muted-foreground mb-1">10% Scenario</p>
-                        <p className="text-2xl font-bold text-success">
-                          +$
-                          {sampleProducts
-                            .reduce((acc, p) => acc + p.currentCost * 0.1, 0)
-                            .toFixed(0)}
-                        </p>
-                      </div>
-                      <div className="text-center p-4 rounded-lg bg-warning/10">
-                        <p className="text-sm text-muted-foreground mb-1">25% Scenario</p>
-                        <p className="text-2xl font-bold text-warning">
-                          +$
-                          {sampleProducts
-                            .reduce((acc, p) => acc + p.currentCost * 0.25, 0)
-                            .toFixed(0)}
-                        </p>
-                      </div>
-                      <div className="text-center p-4 rounded-lg bg-destructive/10">
-                        <p className="text-sm text-muted-foreground mb-1">50% Scenario</p>
-                        <p className="text-2xl font-bold text-destructive">
-                          +$
-                          {sampleProducts
-                            .reduce((acc, p) => acc + p.currentCost * 0.5, 0)
-                            .toFixed(0)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
         )}
 
-        {activeTab === "alerts" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Policy Alerts</h2>
-              <p className="text-muted-foreground">
-                Recent tariff and policy changes that may affect your business
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
-                      <AlertCircle className="h-5 w-5 text-destructive" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">
-                        44% Direct Tariff on Colombian Coffee Beans
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        <strong>Direct import tariff:</strong> 44% applied to finished coffee beans at the border when routed through US ports. This is a straightforward tariff on the agricultural product itself, not affected by component or material costs.
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Effective: Jan 15, 2024</span>
-                        <span>Type: Direct Tariff</span>
-                        <span>Impact: High</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
-                      <AlertCircle className="h-5 w-5 text-destructive" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">
-                        Combined 20% Impact on Italian Espresso Machines
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        <strong>Compound impact:</strong> 12% direct tariff on finished machines PLUS 8% cost increase from upstream tariffs on steel, aluminum, and electronic components. Italian manufacturers are passing along their increased material costs in addition to the border tariff.
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Effective: Jan 10, 2024</span>
-                        <span>Type: Direct + Materials</span>
-                        <span>Impact: High</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
-                      <AlertCircle className="h-5 w-5 text-warning" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">
-                        20% Direct Tariff on US Syrups
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        <strong>Direct import tariff:</strong> 20% on finished syrup products from the US. As a processed food item, this tariff applies to the complete product at the border.
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Effective: Jan 12, 2024</span>
-                        <span>Type: Direct Tariff</span>
-                        <span>Impact: Medium</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+        {activeTab === 'alerts' && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Policy Alerts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border-l-4 border-destructive pl-4 py-2">
+                  <h4 className="font-semibold text-destructive">High Priority</h4>
+                  <p className="text-sm text-foreground mt-1">
+                    New 12% tariff on Italian coffee equipment effective next month
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Direct import tariff on finished products from Italy
+                  </p>
+                </div>
+                
+                <div className="border-l-4 border-warning pl-4 py-2">
+                  <h4 className="font-semibold text-warning">Medium Priority</h4>
+                  <p className="text-sm text-foreground mt-1">
+                    Upstream tariffs on electronics causing 8% material cost increase
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Compound effect: affects products using electronic components
+                  </p>
+                </div>
+                
+                <div className="border-l-4 border-primary pl-4 py-2">
+                  <h4 className="font-semibold text-primary">Info</h4>
+                  <p className="text-sm text-foreground mt-1">
+                    Trade negotiations ongoing - potential changes in Q3 2024
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Monitor for updates on direct vs. indirect tariff policies
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>
