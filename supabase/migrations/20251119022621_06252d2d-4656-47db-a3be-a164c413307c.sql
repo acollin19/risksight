@@ -91,6 +91,8 @@ INSERT INTO public.product_codes (code, name, category, base_tariff, material_ta
   ('1302.19', 'Vanilla Syrup', 'Ingredients', 10, 0),
   ('8479.89', 'Commercial Blenders', 'Equipment', 20, 5),
   ('3924.10', 'Food Storage Containers', 'Supplies', 8, 3);
+  ('48373.1', 'Coffee Filters', 'Supplies', 5, 2);
+  ('2106.90', 'Caramel Syrups', 'Ingredients', 12, 0);
 
 -- Update timestamp trigger function
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
