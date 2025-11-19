@@ -41,14 +41,14 @@ export default function Auth() {
     try {
       // Validate input
       const validationData = isLogin 
-        ? { companyName, password }
+        ? { email, password }
         : { email, password, companyName };
       
       authSchema.parse(validationData);
 
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          companyName,
+          email,
           password,
         });
 
@@ -58,7 +58,7 @@ export default function Auth() {
       } else {
         const redirectUrl = `${window.location.origin}/`;
         const { error } = await supabase.auth.signUp({
-          companyName,
+          email,
           password,
           options: {
             emailRedirectTo: redirectUrl,
