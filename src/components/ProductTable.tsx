@@ -7,6 +7,7 @@ import { MitigationStrategies } from "./MitigationStrategies";
 
 export interface Product {
   id: string;
+  productCode: string;
   name: string;
   category: string;
   origin: string;
@@ -63,13 +64,18 @@ export const ProductTable = ({ products }: ProductTableProps) => {
                   )}
                 </div>
 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
                   <div className="flex items-center gap-3 md:col-span-2">
                     <Package className="h-8 w-8 text-primary" />
                     <div>
                       <h3 className="font-semibold text-foreground">{product.name}</h3>
                       <p className="text-sm text-muted-foreground">{product.category}</p>
                     </div>
+                  </div>
+
+                  <div className="hidden md:block">
+                    <p className="text-sm text-muted-foreground">Product Code</p>
+                    <p className="font-medium">{product.productCode}</p>
                   </div>
 
                   <div className="hidden md:block">
