@@ -18,6 +18,30 @@ SET product_type = 'Coffee',
     processing_type = 'Not Roasted'
 WHERE code = '0903.24';
 
+UPDATE product_codes 
+SET product_type = 'Equipment',
+    sub_category = 'Espresso Machines',
+    processing_type = 'Electric'
+WHERE code = '8516.71';
+
+UPDATE product_codes 
+SET product_type = 'Supplies',
+    sub_category = 'Coffee Filters',
+    processing_type = 'Clean'
+WHERE code = '48373.1'; 
+
+UPDATE product_codes 
+SET product_type = 'Syrups',
+    sub_category = 'Syrups',
+    processing_type = 'Liquid'
+WHERE code = '2106.90';
+
+UPDATE product_codes 
+SET product_type = 'Ingredients',
+    sub_category = 'Syrups',
+    processing_type = 'Liquid'
+WHERE code = '1302.19';
+
 -- Add more sample coffee products for demonstration
 INSERT INTO product_codes (code, name, category, base_tariff, material_tariff, product_type, sub_category, processing_type)
 VALUES 
