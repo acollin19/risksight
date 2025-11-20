@@ -22,6 +22,9 @@ export type Database = {
           created_at: string
           material_tariff: number
           name: string
+          processing_type: string | null
+          product_type: string | null
+          sub_category: string | null
         }
         Insert: {
           base_tariff?: number
@@ -30,6 +33,9 @@ export type Database = {
           created_at?: string
           material_tariff?: number
           name: string
+          processing_type?: string | null
+          product_type?: string | null
+          sub_category?: string | null
         }
         Update: {
           base_tariff?: number
@@ -38,6 +44,9 @@ export type Database = {
           created_at?: string
           material_tariff?: number
           name?: string
+          processing_type?: string | null
+          product_type?: string | null
+          sub_category?: string | null
         }
         Relationships: []
       }
