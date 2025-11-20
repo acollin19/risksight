@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<'products' | 'scenarios' | 'alerts'>('products');
   const [user, setUser] = useState<User | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -468,159 +467,115 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6 border-b">
-          <button
-            onClick={() => setActiveTab('products')}
-            className={cn(
-              "px-4 py-2 font-medium transition-colors border-b-2",
-              activeTab === 'products'
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Products
-          </button>
-          <button
-            onClick={() => setActiveTab('scenarios')}
-            className={cn(
-              "px-4 py-2 font-medium transition-colors border-b-2",
-              activeTab === 'scenarios'
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Scenarios
-          </button>
-          <button
-            onClick={() => setActiveTab('alerts')}
-            className={cn(
-              "px-4 py-2 font-medium transition-colors border-b-2",
-              activeTab === 'alerts'
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Alerts
-          </button>
+        {/* Products Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">Products</h2>
+          {products.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No Products Yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Start by adding products to track their tariff impact
+              </p>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Product
+              </Button>
+            </Card>
+          ) : (
+            <ProductTable products={products} />
+          )}
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'products' && (
-          <div>
-            {products.length === 0 ? (
-              <Card className="p-12 text-center">
-                <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Products Yet</h3>
-                <p className="text-muted-foreground mb-6">
-                  Start by adding products to track their tariff impact
+        {/* Scenarios Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">What-If Scenarios</h2>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              {products.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  Add products to see scenario analysis
                 </p>
-                <Button onClick={() => setDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Product
-                </Button>
-              </Card>
-            ) : (
-              <ProductTable products={products} />
-            )}
-          </div>
-        )}
-
-        {activeTab === 'scenarios' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>What-If Scenarios</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {products.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Add products to see scenario analysis
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Compare how different tariff rates would affect your business
                   </p>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      Compare how different tariff rates would affect your business
-                    </p>
+                  
+                  {[10, 25, 50].map(rate => {
+                    const scenarioImpact = products.reduce((acc, p) => {
+                      const currentTotal = p.directTariff + p.materialCostIncrease;
+                      const scenarioCost = p.currentCost * (1 + rate / 100);
+                      const currentCost = p.currentCost * (1 + currentTotal / 100);
+                      return acc + (scenarioCost - currentCost);
+                    }, 0);
                     
-                    {[10, 25, 50].map(rate => {
-                      const scenarioImpact = products.reduce((acc, p) => {
-                        const currentTotal = p.directTariff + p.materialCostIncrease;
-                        const scenarioCost = p.currentCost * (1 + rate / 100);
-                        const currentCost = p.currentCost * (1 + currentTotal / 100);
-                        return acc + (scenarioCost - currentCost);
-                      }, 0);
-                      
-                      return (
-                        <Card key={rate} className="bg-muted/20">
-                          <CardContent className="pt-6">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <h4 className="font-semibold">At {rate}% Tariff Rate</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Across all products
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-2xl font-bold text-destructive">
-                                  {scenarioImpact >= 0 ? '+' : ''}${scenarioImpact.toFixed(2)}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Total business impact
-                                </p>
-                              </div>
+                    return (
+                      <Card key={rate} className="bg-muted/20">
+                        <CardContent className="pt-6">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h4 className="font-semibold">At {rate}% Tariff Rate</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Across all products
+                              </p>
                             </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-destructive">
+                                {scenarioImpact >= 0 ? '+' : ''}${scenarioImpact.toFixed(2)}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Total business impact
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        {activeTab === 'alerts' && (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Policy Alerts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border-l-4 border-destructive pl-4 py-2">
-                  <h4 className="font-semibold text-destructive">High Priority</h4>
-                  <p className="text-sm text-foreground mt-1">
-                    New 12% tariff on Italian coffee equipment effective next month
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Direct import tariff on finished products from Italy
-                  </p>
-                </div>
-                
-                <div className="border-l-4 border-warning pl-4 py-2">
-                  <h4 className="font-semibold text-warning">Medium Priority</h4>
-                  <p className="text-sm text-foreground mt-1">
-                    Upstream tariffs on electronics causing 8% material cost increase
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Compound effect: affects products using electronic components
-                  </p>
-                </div>
-                
-                <div className="border-l-4 border-primary pl-4 py-2">
-                  <h4 className="font-semibold text-primary">Info</h4>
-                  <p className="text-sm text-foreground mt-1">
-                    Trade negotiations ongoing - potential changes in Q3 2024
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Monitor for updates on direct vs. indirect tariff policies
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {/* Alerts Section */}
+        <div>
+          <h2 className="text-2xl font-bold mb-4">Policy Alerts</h2>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="border-l-4 border-destructive pl-4 py-2">
+                <h4 className="font-semibold text-destructive">High Priority</h4>
+                <p className="text-sm text-foreground mt-1">
+                  New 12% tariff on Italian coffee equipment effective next month
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Direct import tariff on finished products from Italy
+                </p>
+              </div>
+              
+              <div className="border-l-4 border-warning pl-4 py-2">
+                <h4 className="font-semibold text-warning">Medium Priority</h4>
+                <p className="text-sm text-foreground mt-1">
+                  Upstream tariffs on electronics causing 8% material cost increase
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Compound effect: affects products using electronic components
+                </p>
+              </div>
+              
+              <div className="border-l-4 border-primary pl-4 py-2">
+                <h4 className="font-semibold text-primary">Info</h4>
+                <p className="text-sm text-foreground mt-1">
+                  Trade negotiations ongoing - potential changes in Q3 2024
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Monitor for updates on direct vs. indirect tariff policies
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );
