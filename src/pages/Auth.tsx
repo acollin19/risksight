@@ -90,8 +90,8 @@ export default function Auth() {
           <div className="flex items-center justify-center gap-3">
             <Shield className="h-10 w-10 text-primary" />
             <div>
-              <CardTitle className="text-2xl">RiskSight</CardTitle>
-              <CardDescription>SME Tariff & Policy Risk Dashboard</CardDescription>
+              <CardTitle className="text-2xl">TradeGuard</CardTitle>
+              <CardDescription>SME Tariff Risk Dashboard</CardDescription>
             </div>
           </div>
         </CardHeader>
