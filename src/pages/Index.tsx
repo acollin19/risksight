@@ -9,12 +9,31 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'scenarios' | 'alerts'>('products');
   const [user, setUser] = useState<User | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Add product form states
+  const [productType, setProductType] = useState("");
+  const [countryOfImport, setCountryOfImport] = useState("");
+  const [category, setCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
+  const [processingType, setProcessingType] = useState("");
+  const [currentCost, setCurrentCost] = useState("");
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableSubCategories, setAvailableSubCategories] = useState<string[]>([]);
+  const [availableProcessingTypes, setAvailableProcessingTypes] = useState<string[]>([]);
+  const [matchedProducts, setMatchedProducts] = useState<any[]>([]);
+  const [selectedProductCode, setSelectedProductCode] = useState("");
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,6 +108,134 @@ const Index = () => {
     navigate("/auth");
   };
 
+  // Fetch available categories based on product type and country
+  useEffect(() => {
+    if (productType && countryOfImport) {
+      const fetchCategories = async () => {
+        const { data } = await supabase
+          .from("product_codes")
+          .select("category")
+          .ilike("product_type", `%${productType}%`);
+        
+        if (data) {
+          const unique = Array.from(new Set(data.map(d => d.category)));
+          setAvailableCategories(unique);
+        }
+      };
+      fetchCategories();
+    } else {
+      setAvailableCategories([]);
+      setCategory("");
+    }
+  }, [productType, countryOfImport]);
+
+  // Fetch available sub-categories based on category
+  useEffect(() => {
+    if (category && productType) {
+      const fetchSubCategories = async () => {
+        const { data } = await supabase
+          .from("product_codes")
+          .select("sub_category")
+          .ilike("product_type", `%${productType}%`)
+          .eq("category", category)
+          .not("sub_category", "is", null);
+        
+        if (data) {
+          const unique = Array.from(new Set(data.map(d => d.sub_category)));
+          setAvailableSubCategories(unique);
+        }
+      };
+      fetchSubCategories();
+    } else {
+      setAvailableSubCategories([]);
+      setSubCategory("");
+    }
+  }, [category, productType]);
+
+  // Fetch available processing types based on sub-category
+  useEffect(() => {
+    if (subCategory && category && productType) {
+      const fetchProcessingTypes = async () => {
+        const { data } = await supabase
+          .from("product_codes")
+          .select("processing_type")
+          .ilike("product_type", `%${productType}%`)
+          .eq("category", category)
+          .eq("sub_category", subCategory)
+          .not("processing_type", "is", null);
+        
+        if (data) {
+          const unique = Array.from(new Set(data.map(d => d.processing_type)));
+          setAvailableProcessingTypes(unique);
+        }
+      };
+      fetchProcessingTypes();
+    } else {
+      setAvailableProcessingTypes([]);
+      setProcessingType("");
+    }
+  }, [subCategory, category, productType]);
+
+  // Fetch matched product codes
+  useEffect(() => {
+    if (processingType && subCategory && category && productType) {
+      const fetchMatchedProducts = async () => {
+        const { data } = await supabase
+          .from("product_codes")
+          .select("*")
+          .ilike("product_type", `%${productType}%`)
+          .eq("category", category)
+          .eq("sub_category", subCategory)
+          .eq("processing_type", processingType);
+        
+        if (data) {
+          setMatchedProducts(data);
+        }
+      };
+      fetchMatchedProducts();
+    } else {
+      setMatchedProducts([]);
+      setSelectedProductCode("");
+    }
+  }, [processingType, subCategory, category, productType]);
+
+  const handleAddProduct = async () => {
+    if (!selectedProductCode || !currentCost || !countryOfImport || !user) {
+      toast.error("Please complete all fields");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("user_products").insert({
+        user_id: user.id,
+        product_code: selectedProductCode,
+        current_cost: parseFloat(currentCost),
+        country_of_import: countryOfImport,
+      });
+
+      if (error) throw error;
+
+      toast.success("Product added successfully!");
+      setDialogOpen(false);
+      
+      // Reset form
+      setProductType("");
+      setCountryOfImport("");
+      setCategory("");
+      setSubCategory("");
+      setProcessingType("");
+      setCurrentCost("");
+      setSelectedProductCode("");
+      
+      // Refresh products
+      if (user) {
+        await fetchProducts(user.id);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add product");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -120,10 +267,156 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={() => navigate("/add-product")} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Product
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add New Product</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="productType">Product Type</Label>
+                      <Input
+                        id="productType"
+                        value={productType}
+                        onChange={(e) => setProductType(e.target.value)}
+                        placeholder="e.g., coffee, electronics"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="countryOfImport">Country of Import</Label>
+                      <Input
+                        id="countryOfImport"
+                        value={countryOfImport}
+                        onChange={(e) => setCountryOfImport(e.target.value)}
+                        placeholder="e.g., China, Italy"
+                      />
+                    </div>
+
+                    {availableCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Select value={category} onValueChange={setCategory}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCategories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {availableSubCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="subCategory">Type</Label>
+                        <Select value={subCategory} onValueChange={setSubCategory}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSubCategories.map((sub) => (
+                              <SelectItem key={sub} value={sub}>
+                                {sub}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {availableProcessingTypes.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="processingType">Processing</Label>
+                        <Select value={processingType} onValueChange={setProcessingType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select processing type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableProcessingTypes.map((proc) => (
+                              <SelectItem key={proc} value={proc}>
+                                {proc}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {matchedProducts.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="productCode">Product Code</Label>
+                        <Select value={selectedProductCode} onValueChange={setSelectedProductCode}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select product code" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {matchedProducts.map((prod) => (
+                              <SelectItem key={prod.code} value={prod.code}>
+                                {prod.code} - {prod.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        {selectedProductCode && (
+                          <div className="bg-muted/50 rounded-lg p-4 space-y-2 mt-2">
+                            <h4 className="font-medium">Product Details</h4>
+                            {matchedProducts
+                              .filter((p) => p.code === selectedProductCode)
+                              .map((prod) => (
+                                <div key={prod.code} className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground">Base Tariff</p>
+                                    <p className="font-medium">{prod.base_tariff}%</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground">Material Tariff</p>
+                                    <p className="font-medium">{prod.material_tariff}%</p>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedProductCode && (
+                      <div className="space-y-2">
+                        <Label htmlFor="currentCost">Current Cost ($)</Label>
+                        <Input
+                          id="currentCost"
+                          type="number"
+                          step="0.01"
+                          value={currentCost}
+                          onChange={(e) => setCurrentCost(e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    )}
+
+                    <Button 
+                      onClick={handleAddProduct} 
+                      className="w-full"
+                      disabled={!selectedProductCode || !currentCost}
+                    >
+                      Add Product
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
               <Button onClick={handleLogout} variant="outline" size="sm">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
@@ -221,7 +514,7 @@ const Index = () => {
                 <p className="text-muted-foreground mb-6">
                   Start by adding products to track their tariff impact
                 </p>
-                <Button onClick={() => navigate("/add-product")}>
+                <Button onClick={() => setDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Your First Product
                 </Button>
