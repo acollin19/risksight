@@ -80,6 +80,7 @@ const Index = () => {
 
       const formattedProducts: Product[] = (userProducts || []).map((up: any) => ({
         id: up.id,
+        productCode: up.product_code,
         name: up.product_codes.name,
         category: up.product_codes.category,
         origin: up.country_of_import,
